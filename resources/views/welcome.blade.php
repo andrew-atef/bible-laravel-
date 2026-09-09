@@ -43,9 +43,8 @@
     <h2 class="text-[13px] font-bold tracking-wide text-stone-500">العهد القديم — 39 سفر</h2>
     <div class="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
         @foreach($ot as $b)
-            <a href="{{ url('/read/'.$b->slug.'/1') }}" class="group p-3 rounded-2xl border border-stone-200 bg-white hover:border-red-200 hover:shadow-[0_8px_20px_rgba(0,0,0,.06)] transition">
+            <a href="{{ url('/read/'.$b->slug.'/1') }}" class="group p-3 rounded-2xl border border-stone-200 bg-white hover:border-red-200 hover:shadow-[0_8px_20px_rgba(0,0,0,.06)] transition text-center">
                 <div class="text-[13px] font-bold text-stone-900 group-hover:text-red-600">{{ $b->name_ar }}</div>
-                <div class="text-[11px] text-stone-500">{{ $b->name_en }} · {{ $b->code }}</div>
             </a>
         @endforeach
     </div>
@@ -54,9 +53,8 @@
     <h2 class="text-[13px] font-bold tracking-wide text-stone-500">العهد الجديد — 27 سفر</h2>
     <div class="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
         @foreach($nt as $b)
-            <a href="{{ url('/read/'.$b->slug.'/1') }}" class="group p-3 rounded-2xl border border-stone-200 bg-white hover:border-red-200 hover:shadow-[0_8px_20px_rgba(0,0,0,.06)] transition">
+            <a href="{{ url('/read/'.$b->slug.'/1') }}" class="group p-3 rounded-2xl border border-stone-200 bg-white hover:border-red-200 hover:shadow-[0_8px_20px_rgba(0,0,0,.06)] transition text-center">
                 <div class="text-[13px] font-bold text-stone-900 group-hover:text-red-600">{{ $b->name_ar }}</div>
-                <div class="text-[11px] text-stone-500">{{ $b->name_en }} · {{ $b->code }}</div>
             </a>
         @endforeach
     </div>
