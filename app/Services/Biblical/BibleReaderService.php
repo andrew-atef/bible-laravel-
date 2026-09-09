@@ -77,8 +77,8 @@ class BibleReaderService
                         $q->select(['id', 'verse_osis', 'word_pos', 'strong_id', 'source_word', 'source_clean', 'transliteration', 'arabic_word', 'arabic_clean', 'gloss_en', 'morphology', 'all_strongs'])
                             ->orderBy('word_pos');
                     },
-                    // Shallow lexicon for quick gloss popup (avoid N+1) — include pronunciation for drawer
-                    'tokens.lexicon:strong_id,lemma,lemma_clean,transliteration,pronunciation,language,part_of_speech',
+                    // Shallow lexicon for quick gloss popup (avoid N+1) — include pronunciation + short_gloss_ar for drawer
+                    'tokens.lexicon:strong_id,lemma,lemma_clean,transliteration,pronunciation,language,part_of_speech,short_gloss_ar',
                 ])
                 ->get();
 
@@ -158,7 +158,7 @@ class BibleReaderService
                         $q->select(['id', 'verse_osis', 'word_pos', 'strong_id', 'source_word', 'source_clean', 'transliteration', 'arabic_word', 'arabic_clean', 'gloss_en', 'morphology', 'all_strongs'])
                             ->orderBy('word_pos');
                     },
-                    'tokens.lexicon:strong_id,lemma,lemma_clean,transliteration,pronunciation,language,part_of_speech,strongs_definition',
+                    'tokens.lexicon:strong_id,lemma,lemma_clean,transliteration,pronunciation,language,part_of_speech,short_gloss_ar,strongs_definition',
                 ])
                 ->first();
 

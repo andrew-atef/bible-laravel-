@@ -41,6 +41,8 @@
                           data-source="{{ $tok->source_word }}"
                           data-translit="{{ $tok->lexicon->transliteration ?? $tok->transliteration }}"
                           data-pronunciation="{{ $tok->lexicon->pronunciation ?? '' }}"
+                          data-gloss-ar="{{ $tok->lexicon->short_gloss_ar ?? '' }}"
+                          data-gloss-en="{{ $tok->gloss_en }}"
                           data-gloss="{{ $tok->gloss_en }}"
                           data-morph="{{ $tok->morphology }}"
                           data-lemma="{{ $tok->lexicon->lemma ?? '' }}"
@@ -189,7 +191,9 @@ function openWordDrawer(el) {
     const translit = el.dataset.translit || '';
     const cleanTr = translit.replace(/[ʻʼ']/g, '').trim();
     const pron = el.dataset.pronunciation || '';
-    const gloss = el.dataset.gloss || '';
+    const glossAr = el.dataset.glossAr || '';
+    const glossEn = el.dataset.glossEn || el.dataset.gloss || '';
+    const arabicWord = el.dataset.arabic || '';
     const morph = el.dataset.morph || '';
     const osis = el.closest('[id]')?.id || '';
 
@@ -201,7 +205,13 @@ function openWordDrawer(el) {
     document.getElementById('drawer-morph-simple').textContent = translateMorphToSimpleArabic(morph);
     document.getElementById('drawer-source-word').textContent = source;
     document.getElementById('drawer-phonetic').textContent = cleanPronunciation(pron, translit);
-    document.getElementById('drawer-clean-meaning').textContent = cleanGlossText(gloss);
+    const cleanMeaningEl = document.getElementById('drawer-clean-meaning');
+    if (glossAr && glossAr.trim() !== '') {
+        cleanMeaningEl.innerHTML = `<div>${glossAr}</div>` + (glossEn ? `<div class="text-xs text-stone-400 mt-1 font-mono">${cleanGlossText(glossEn)}</div>` : '');
+    } else {
+        const fallback = cleanGlossText(glossEn);
+        cleanMeaningEl.textContent = fallback !== '—' && fallback !== '' ? fallback : arabicWord;
+    }
     
     document.getElementById('drawer-lexicon-link').href = '/lexicon/' + strong;
     document.getElementById('drawer-verse-link').href = osis ? '/verse/' + osis : '#';

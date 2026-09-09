@@ -85,9 +85,8 @@ class BiblicalPlatformTest extends TestCase
         // Hebrew lemma רֵאשִׁית may be rendered as HTML entity or raw; check for Strong ID and transliteration
         $response->assertSee('H7225', false);
         $response->assertSee('resh', false); // cleaned transliteration fragment (reshith/reshiyth)
-        // Outline definitions (new BibleHub top bar uses الملخص المعجمي • Lexical Summary)
-        $response->assertSee('الملخص المعجمي', false);
-        $response->assertSee('Lexical Summary', false);
+        // Outline definitions (new clean header uses المعنى المختصر للكلمة)
+        $response->assertSee('المعنى المختصر للكلمة', false);
         // Concordance occurrences with SVD Arabic highlights - should contain mark.highlight
         $response->assertSee('mark class="highlight"', false);
         $response->assertSee('شواهد', false);

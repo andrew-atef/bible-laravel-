@@ -56,7 +56,7 @@
     
     {{-- عنوان السطر الواحد كملخص فوري --}}
     <div class="border-b border-stone-100 pb-4 mb-5">
-        <div class="text-xs font-bold text-stone-400 uppercase tracking-wider mb-1">الملخص المعجمي • Lexical Summary</div>
+        <div class="text-xs font-bold text-stone-400 uppercase tracking-wider mb-1">المعنى المختصر للكلمة</div>
         <div class="text-[20px] font-bold text-stone-900">
             <span class="text-red-600 font-mono italic">{{ $cleanTranslit }}:</span>
             <span class="text-stone-800 font-semibold">{{ $oneLineMeaning }}</span>
@@ -67,20 +67,19 @@
     <div class="grid sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
         {{-- اللفظ الأصلي --}}
         <div class="p-3.5 bg-stone-50 rounded-xl border border-stone-100">
-            <span class="text-stone-400 text-xs block mb-1">اللفظ الأصلي (Original)</span>
+            <span class="text-stone-400 text-xs block mb-1">اللفظ الأصلي</span>
             <span class="text-2xl font-bold text-stone-900" style="font-family:var(--font-hebrew)">{{ $lex['lemma'] }}</span>
         </div>
 
         {{-- نوع الكلمة --}}
         <div class="p-3.5 bg-stone-50 rounded-xl border border-stone-100">
-            <span class="text-stone-400 text-xs block mb-1">نوع الكلمة (Part of Speech)</span>
+            <span class="text-stone-400 text-xs block mb-1">نوع الكلمة</span>
             <span class="font-bold text-stone-800">{{ $cleanPos }}</span>
-            <span class="text-stone-400 text-xs block">({{ $lex['part_of_speech'] ?? 'Noun' }})</span>
         </div>
 
         {{-- النطق اللاتيني والصوتي --}}
         <div class="p-3.5 bg-stone-50 rounded-xl border border-stone-100">
-            <span class="text-stone-400 text-xs block mb-1">النطق (Transliteration)</span>
+            <span class="text-stone-400 text-xs block mb-1">طريقة النطق</span>
             <span class="font-bold text-stone-800 font-mono text-base" dir="ltr">{{ $cleanTranslit }}</span>
             @if($cleanPron)
                 <span class="text-stone-500 text-xs block font-mono">({{ $cleanPron }})</span>
@@ -89,7 +88,7 @@
 
         {{-- مرات الورود --}}
         <div class="p-3.5 bg-stone-50 rounded-xl border border-stone-100">
-            <span class="text-stone-400 text-xs block mb-1">مرات الورود (Occurrences)</span>
+            <span class="text-stone-400 text-xs block mb-1">تكرار الورود في الكتاب</span>
             <span class="text-xl font-extrabold text-red-600 font-mono">{{ $summary['occurrences_count'] }}</span>
             <span class="text-stone-400 text-xs">مرة في الكتاب</span>
         </div>
@@ -97,7 +96,7 @@
 
     {{-- الأصل والاشتقاق اللغوي --}}
     <div class="mt-5 p-4 rounded-xl bg-stone-50 border border-stone-100">
-        <span class="text-xs font-bold text-stone-400 block mb-1.5">الأصل والاشتقاق اللغوي (Word Origin)</span>
+        <span class="text-xs font-bold text-stone-400 block mb-1.5">أصل الكلمة وجذرها</span>
         @if(!empty($lex['root_info']))
             <div class="flex items-center flex-wrap gap-2 text-sm text-stone-800">
                 <span>مشتق من:</span>
@@ -131,7 +130,7 @@
         $senses = array_values(array_filter(array_map('trim', explode(';', $defText))));
     @endphp
     <div class="mt-5 p-5 rounded-2xl bg-stone-50/80 border border-stone-200/80">
-        <span class="text-xs font-bold text-stone-400 block mb-2">معنى ودلالة اللفظ • Meaning & Definition</span>
+        <span class="text-xs font-bold text-stone-400 block mb-2">المعنى والشرح المفصل</span>
         @if(count($senses) > 1)
             <div class="space-y-2.5">
                 @foreach($senses as $idx => $sense)
@@ -148,21 +147,58 @@
         @endif
     </div>
 
-    {{-- الترجمات الإنجليزية الشائعة — Inline Chips --}}
-    @if(!empty($lex['kjv_translations']))
-        @php
-            $cleanKjv = trim(str_replace([':--', '--'], '', $lex['kjv_translations']));
-            $kjvWords = array_values(array_filter(array_map('trim', explode(',', $cleanKjv))));
-        @endphp
-        <div class="mt-5 p-4 rounded-xl bg-stone-50 border border-stone-100">
-            <span class="text-xs font-bold text-stone-400 block mb-2.5">الترجمات الإنجليزية الشائعة • KJV Translation Tags</span>
-            <div class="flex flex-wrap gap-1.5" dir="ltr">
-                @foreach($kjvWords as $kw)
-                    <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-white border border-stone-200 text-xs font-medium text-stone-700 shadow-2xs hover:border-stone-300">
-                        {{ $kw }}
-                    </span>
-                @endforeach
-            </div>
+    {{-- الترجمات الشائعة — ثنائية اللغة: العربي فوق الإنجليزي --}}
+    @php
+        $kjvEnRaw = $lex['kjv_translations'] ?? '';
+        $kjvArRaw = $lex['kjv_translations_ar'] ?? '';
+        // دالة تقسيم تحترم الأقواس: لا تقسم داخل (... )
+        $splitKjv = function(string $s): array {
+            $s = trim(str_replace([':--', '--'], '', $s));
+            $s = trim($s, " \t\n\r\0\x0B.,;:-");
+            if ($s === '') return [];
+            $res = []; $cur = ''; $depth = 0;
+            $len = mb_strlen($s, 'UTF-8');
+            for ($i=0; $i<$len; $i++) {
+                $ch = mb_substr($s, $i, 1, 'UTF-8');
+                if ($ch==='(') $depth++;
+                if ($ch===')') $depth = max(0,$depth-1);
+                // يدعم الفاصلة العربية ، والإنجليزية , والفاصلة المنقوطة ؛ ;
+                if (($ch===',' || $ch==='،' || $ch===';' || $ch==='؛') && $depth===0) {
+                    $res[] = trim($cur);
+                    $cur = '';
+                } else {
+                    $cur .= $ch;
+                }
+            }
+            if (trim($cur) !== '') $res[] = trim($cur);
+            return array_values(array_filter(array_map(fn($x)=>trim($x," \t\n\r\0\x0B.;:-"), $res)));
+        };
+        $kjvEnItems = $splitKjv($kjvEnRaw);
+        $kjvArItems = $splitKjv($kjvArRaw);
+        $kjvCount = max(count($kjvEnItems), count($kjvArItems));
+    @endphp
+    @if(!empty($kjvEnItems) || !empty($kjvArItems))
+        <div class="mt-5 p-4 rounded-xl bg-stone-50 border border-stone-100 space-y-4">
+            @if(!empty($kjvArItems))
+                <div>
+                    <span class="text-[11px] font-bold text-stone-500 block mb-1.5">العربية — الترجمات الشائعة</span>
+                    <div class="flex flex-wrap gap-1.5">
+                        @foreach($kjvArItems as $ar)
+                            <span class="inline-flex items-center px-3 py-1 rounded-full bg-white border border-stone-200 text-[13px] font-bold font-arabic-text text-stone-800 shadow-sm">{{ $ar }}</span>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+            @if(!empty($kjvEnItems))
+                <div>
+                    <span class="text-[11px] font-bold text-stone-500 block mb-1.5">الإنجليزية — KJV Translation Tags</span>
+                    <div class="flex flex-wrap gap-1.5" dir="ltr">
+                        @foreach($kjvEnItems as $en)
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-white border border-stone-200 text-xs font-medium text-stone-600 shadow-sm">{{ $en }}</span>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
         </div>
     @endif
 
@@ -181,10 +217,10 @@
     </div>
 </div>
 
-{{-- 4. صيغ ورود اللفظ في النص الأصلي (Forms in Text) --}}
+{{-- 4. صيغ ورود اللفظ في النص الأصلي --}}
 @if(!empty($summary['hebrew_forms']))
 <div class="mt-6">
-    <h3 class="text-xs font-bold text-stone-500 mb-2.5">صيغ ورود اللفظ في النص الأصلي (Forms in Text):</h3>
+    <h3 class="text-xs font-bold text-stone-500 mb-2.5">أشكال الكلمة في النص الأصلي:</h3>
     <div class="flex flex-wrap gap-2" dir="ltr">
         @foreach($summary['hebrew_forms'] as $form)
             <span class="px-3 py-1 rounded-lg bg-white border border-stone-200 text-sm font-bold text-stone-800 shadow-xs" style="font-family:var(--font-hebrew)">
@@ -199,7 +235,7 @@
 <div class="mt-8">
     <div class="flex items-baseline justify-between mb-4">
         <h2 class="text-base font-extrabold text-stone-900">شواهد ورود الكلمة في الكتاب المقدس ({{ $occurrences->total() }} آية)</h2>
-        <span class="text-xs text-stone-400">فهرس المتوافقات الكامل (مرتب كنسياً)</span>
+        <span class="text-xs text-stone-400">شواهد الآيات في أسفار الكتاب المقدس</span>
     </div>
     
     <div class="space-y-3">
