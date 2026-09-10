@@ -69,30 +69,78 @@ class LexiconStudyService
                 return null;
             }
 
-            // تجهيز بيانات الجذر التفصيلية (نطق + معنى عربي + معنى إنجليزي)
+            // تجهيز بيانات الجذر/الجذور التفصيلية (يدعم تعدد الأصول مثل G4647: G4628 + G3700)
             $rootInfo = null;
-            if ($lexicon->rootLexicon) {
-                $root = $lexicon->rootLexicon;
+            $rootInfos = [];
+            // استخرج كل أرقام سترونغ من word_origin (مثل "perhaps from the base of G4628 and G3700;")
+            $allRootIds = [];
+            if (!empty($lexicon->word_origin)) {
+                preg_match_all('/[HG]\d+/i', $lexicon->word_origin, $mAll);
+                foreach ($mAll[0] as $rid) {
+                    $allRootIds[] = strtoupper($rid);
+                }
+            }
+            // أضف root_strong الأساسي إن لم يكن في القائمة
+            if (!empty($lexicon->root_strong) && !in_array(strtoupper($lexicon->root_strong), $allRootIds, true)) {
+                $allRootIds[] = strtoupper($lexicon->root_strong);
+            }
+            // أزل التكرار
+            $allRootIds = array_values(array_unique($allRootIds));
 
-                // 1. استخراج معنى إنجليزي مقتضب جداً من بداية التعريف (مثل: "I" أو "head")
+            if (!empty($allRootIds)) {
+                // جلب كل الجذور دفعة واحدة
+                $roots = \App\Models\Lexicon::whereIn('strong_id', $allRootIds)->get()->keyBy('strong_id');
+                foreach ($allRootIds as $rid) {
+                    $root = $roots->get($rid) ?? $lexicon->rootLexicon;
+                    if (!$root || $root->strong_id !== $rid) {
+                        // حاول جلبه مباشرة إذا لم يكن في الـ with
+                        $root = $roots->get($rid) ?? \App\Models\Lexicon::where('strong_id', $rid)->first();
+                        if (!$root) continue;
+                    }
+                    $cleanEnDef = '';
+                    if (!empty($root->strongs_definition)) {
+                        if (preg_match('/^([a-zA-Z\s]+?)(?:[\(;,\.]|$)/', trim($root->strongs_definition), $m)) {
+                            $cleanEnDef = trim($m[1]);
+                        }
+                    }
+                    $rootArabic = DB::table('arabic_concordance')
+                        ->where('strong_id', $root->strong_id)
+                        ->groupBy('arabic_word')
+                        ->orderByDesc(DB::raw('COUNT(*)'))
+                        ->value('arabic_word');
+                    $rootPron = trim(str_replace(["'", 'ʼ', 'ʻ', '`'], '', $root->pronunciation ?: $root->transliteration ?: ''));
+                    $info = [
+                        'strong_id'     => $root->strong_id,
+                        'lemma'         => $root->lemma,
+                        'pronunciation' => $rootPron,
+                        'meaning_en'    => $cleanEnDef ?: null,
+                        'meaning_ar'    => $rootArabic ?: null,
+                    ];
+                    $rootInfos[] = $info;
+                    // احتفظ بالأول كـ rootInfo للتوافق الخلفي
+                    if ($rootInfo === null && $rid === strtoupper($lexicon->root_strong ?? $allRootIds[0])) {
+                        $rootInfo = $info;
+                    }
+                }
+                // إذا لم يوجد root_strong أصلي، اجعل الأول هو الأساسي
+                if ($rootInfo === null && !empty($rootInfos)) {
+                    $rootInfo = $rootInfos[0];
+                }
+            } elseif ($lexicon->rootLexicon) {
+                // Fallback القديم: جذر واحد فقط
+                $root = $lexicon->rootLexicon;
                 $cleanEnDef = '';
                 if (!empty($root->strongs_definition)) {
-                    // أخذ أول كلمة أو عبارة قبل الأقواس والفواصل
                     if (preg_match('/^([a-zA-Z\s]+?)(?:[\(;,\.]|$)/', trim($root->strongs_definition), $m)) {
                         $cleanEnDef = trim($m[1]);
                     }
                 }
-
-                // 2. استخراج أشهر ترجمة عربية ورد بها هذا الجذر في فان دايك (مثل: "أَنَا" أو "رَأْس")
                 $rootArabic = DB::table('arabic_concordance')
                     ->where('strong_id', $root->strong_id)
                     ->groupBy('arabic_word')
                     ->orderByDesc(DB::raw('COUNT(*)'))
                     ->value('arabic_word');
-
-                // 3. تنظيف النطق الصوتي للجذر
                 $rootPron = trim(str_replace(["'", 'ʼ', 'ʻ', '`'], '', $root->pronunciation ?: $root->transliteration ?: ''));
-
                 $rootInfo = [
                     'strong_id'     => $root->strong_id,
                     'lemma'         => $root->lemma,
@@ -100,6 +148,7 @@ class LexiconStudyService
                     'meaning_en'    => $cleanEnDef ?: null,
                     'meaning_ar'    => $rootArabic ?: null,
                 ];
+                $rootInfos = [$rootInfo];
             }
 
             // Occurrences count (fast indexed lookup on strong_id)
@@ -182,7 +231,8 @@ class LexiconStudyService
                     'part_of_speech' => $lexicon->part_of_speech,
                     'word_origin' => $lexicon->word_origin,
                     'root_strong' => $lexicon->root_strong,
-                    'root_info' => $rootInfo, // الحقل الجديد الغني بالمعلومات
+                    'root_info' => $rootInfo, // الحقل الغني — الأول للتوافق
+                    'root_infos' => $rootInfos, // كل الجذور (يدعم تعدد مثل G4647: G4628+G3700)
                     'strongs_definition' => $lexicon->strongs_definition,
                     'strongs_definition_ar' => $lexicon->strongs_definition_ar,
                     'kjv_translations' => $lexicon->kjv_translations,

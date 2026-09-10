@@ -94,29 +94,36 @@
         </div>
     </div>
 
-    {{-- الأصل والاشتقاق اللغوي --}}
+    {{-- الأصل والاشتقاق اللغوي — يدعم تعدد الجذور مثل G4647: G4628 + G3700 --}}
     <div class="mt-5 p-4 rounded-xl bg-stone-50 border border-stone-100">
         <span class="text-xs font-bold text-stone-400 block mb-1.5">أصل الكلمة وجذرها</span>
-        @if(!empty($lex['root_info']))
+        @php $allRoots = $lex['root_infos'] ?? (!empty($lex['root_info']) ? [$lex['root_info']] : []); @endphp
+        @if(!empty($allRoots))
             <div class="flex items-center flex-wrap gap-2 text-sm text-stone-800">
                 <span>مشتق من:</span>
-                <a href="{{ url('/lexicon/'.$lex['root_info']['strong_id']) }}" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white border border-stone-200 hover:border-red-300 hover:text-red-700 transition no-underline">
-                    <span class="font-bold text-red-600 font-mono">{{ $lex['root_info']['strong_id'] }}</span>
-                    <span class="font-bold text-stone-900 text-base" style="font-family:var(--font-hebrew)">{{ $lex['root_info']['lemma'] }}</span>
-                    @if($lex['root_info']['pronunciation'])
-                        <span class="text-stone-400">•</span>
-                        <span class="text-stone-600 font-mono text-xs" dir="ltr">{{ $lex['root_info']['pronunciation'] }}</span>
-                    @endif
-                    @if($lex['root_info']['meaning_ar'])
-                        <span class="text-stone-400">•</span>
-                        <span class="font-bold font-arabic-text text-red-700">«{{ $lex['root_info']['meaning_ar'] }}»</span>
-                    @endif
-                    @if($lex['root_info']['meaning_en'])
-                        <span class="text-stone-400">•</span>
-                        <span class="text-stone-500 text-xs">({{ $lex['root_info']['meaning_en'] }})</span>
-                    @endif
-                </a>
+                @foreach($allRoots as $ri)
+                    <a href="{{ url('/lexicon/'.$ri['strong_id']) }}" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white border border-stone-200 hover:border-red-300 hover:text-red-700 transition no-underline">
+                        <span class="font-bold text-red-600 font-mono">{{ $ri['strong_id'] }}</span>
+                        <span class="font-bold text-stone-900 text-base" style="font-family:var(--font-hebrew)">{{ $ri['lemma'] }}</span>
+                        @if(!empty($ri['pronunciation']))
+                            <span class="text-stone-400">•</span>
+                            <span class="text-stone-600 font-mono text-xs" dir="ltr">{{ $ri['pronunciation'] }}</span>
+                        @endif
+                        @if(!empty($ri['meaning_ar']))
+                            <span class="text-stone-400">•</span>
+                            <span class="font-bold font-arabic-text text-red-700">«{{ $ri['meaning_ar'] }}»</span>
+                        @endif
+                        @if(!empty($ri['meaning_en']))
+                            <span class="text-stone-400">•</span>
+                            <span class="text-stone-500 text-xs">({{ $ri['meaning_en'] }})</span>
+                        @endif
+                    </a>
+                    @if(!$loop->last)<span class="text-stone-400">و</span>@endif
+                @endforeach
             </div>
+            @if(!empty($lex['word_origin']) && count($allRoots) > 1)
+                <p class="text-xs text-stone-500 mt-2">{{ $lex['word_origin'] }}</p>
+            @endif
         @else
             <p class="text-sm text-stone-700 leading-relaxed">
                 {{ !empty($lex['word_origin']) && !str_contains($lex['word_origin'], 'from the same as ;') ? $lex['word_origin'] : 'جذر لغوي أصيل (Primitive Root)' }}
