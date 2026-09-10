@@ -259,6 +259,7 @@ class BibleReaderService
                     'transliteration' => $tok->lexicon->transliteration,
                     'language' => $tok->lexicon->language,
                     'part_of_speech' => $tok->lexicon->part_of_speech ?? null,
+                    'short_gloss_ar' => $tok->lexicon->short_gloss_ar ?? null,
                 ] : null,
             ];
         })->toArray();

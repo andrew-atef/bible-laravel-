@@ -25,7 +25,7 @@
     <div class="text-[11px] font-bold tracking-wide text-red-600 mb-2">{{ $verse['osis_id'] }} • الإصحاح {{ $verse['chapter'] }} : الآية {{ $verse['verse'] }}</div>
     <div class="font-arabic-text text-[26px] sm:text-[28px] leading-[2] flex flex-wrap gap-x-2 gap-y-1">
         @foreach($tokens as $tok)
-            <span class="word-token" data-strong="{{ $tok->strong_id }}" data-arabic="{{ $tok->arabic_word }}" data-source="{{ $tok->source_word }}" data-translit="{{ $tok->transliteration }}" data-gloss="{{ $tok->gloss_en }}" data-morph="{{ $tok->morphology }}">{{ $tok->arabic_word }}</span>
+            <span class="word-token" data-strong="{{ $tok->strong_id }}" data-arabic="{{ $tok->arabic_word }}" data-source="{{ $tok->source_word }}" data-translit="{{ $tok->transliteration }}" data-gloss-ar="{{ $tok->lexicon->short_gloss_ar ?? '' }}" data-gloss="{{ $tok->gloss_en }}" data-gloss-en="{{ $tok->gloss_en }}" data-morph="{{ $tok->morphology }}">{{ $tok->arabic_word }}</span>
         @endforeach
     </div>
     <div class="mt-4 pt-4 border-t border-stone-100 flex flex-wrap gap-1.5" dir="ltr">
@@ -49,17 +49,30 @@
                 <span>#</span><span>العربية</span><span>الأصل</span><span>النطق</span><span>سترونغ</span><span>المعنى / الصرف</span>
             </div>
             @foreach($interlinear as $row)
-                <div class="grid grid-cols-1 sm:grid-cols-[56px_1.2fr_1fr_1fr_90px_1.2fr] gap-2 sm:gap-3 px-4 py-3 border-b border-stone-50 last:border-0 hover:bg-stone-50/60 transition">
-                    <div class="flex items-center gap-2">
+                <div class="sm:grid sm:grid-cols-[56px_1.2fr_1fr_1fr_90px_1.2fr] sm:gap-3 px-4 py-4 border-b border-stone-100 last:border-0 hover:bg-stone-50/60 transition bg-white sm:bg-transparent rounded-xl sm:rounded-none border sm:border-0 shadow-sm sm:shadow-none mb-3 sm:mb-0">
+                    <div class="hidden sm:flex items-center gap-2">
                         <span class="w-7 h-7 grid place-items-center rounded-full bg-stone-900 text-white text-[11px] font-bold">{{ $row['position'] }}</span>
-                        <span class="sm:hidden text-[12px] text-stone-400">#{{ $row['position'] }}</span>
                     </div>
-                    <div><a href="{{ url('/lexicon/'.$row['strong_id']) }}" class="font-bold text-stone-900 hover:text-red-600 font-arabic-text text-[16px]">{{ $row['arabic_word'] }}</a><div class="text-[11px] text-stone-400">{{ $row['arabic_clean'] ?? '' }}</div></div>
-                    <div class="font-hebrew text-[16px] text-stone-700" dir="ltr">{{ $row['source_word'] }}</div>
-                    <div class="font-greek text-[13px] text-stone-600">{{ $row['transliteration'] }}</div>
-                    <div><a href="{{ url('/lexicon/'.$row['strong_id']) }}" class="inline-flex px-2.5 py-1 rounded-full bg-red-50 border border-red-100 text-[12px] font-bold text-red-700 hover:bg-red-100">{{ $row['strong_id'] }}</a></div>
+                    <div class="sm:hidden flex items-center justify-between mb-2">
+                        <span class="w-6 h-6 grid place-items-center rounded-full bg-stone-900 text-white text-[10px] font-bold">{{ $row['position'] }}</span>
+                        <a href="{{ url('/lexicon/'.$row['strong_id']) }}" class="inline-flex px-2.5 py-1 rounded-full bg-red-50 border border-red-100 text-[11px] font-bold text-red-700">{{ $row['strong_id'] }}</a>
+                    </div>
+                    <div class="sm:block flex gap-3">
+                        <div class="sm:hidden text-[10px] font-bold text-stone-400 w-12 shrink-0 pt-1">العربية</div>
+                        <div><a href="{{ url('/lexicon/'.$row['strong_id']) }}" class="font-bold text-stone-900 hover:text-red-600 font-arabic-text text-[16px]">{{ $row['arabic_word'] }}</a><div class="text-[11px] text-stone-400">{{ $row['arabic_clean'] ?? '' }}</div></div>
+                    </div>
+                    <div class="sm:block flex gap-3">
+                        <div class="sm:hidden text-[10px] font-bold text-stone-400 w-12 shrink-0">الأصل</div>
+                        <div class="font-hebrew text-[16px] text-stone-700" dir="ltr">{{ $row['source_word'] }}</div>
+                    </div>
+                    <div class="sm:block flex gap-3">
+                        <div class="sm:hidden text-[10px] font-bold text-stone-400 w-12 shrink-0">النطق</div>
+                        <div class="font-greek text-[13px] text-stone-600">{{ $row['transliteration'] }}</div>
+                    </div>
+                    <div class="hidden sm:block"><a href="{{ url('/lexicon/'.$row['strong_id']) }}" class="inline-flex px-2.5 py-1 rounded-full bg-red-50 border border-red-100 text-[12px] font-bold text-red-700 hover:bg-red-100">{{ $row['strong_id'] }}</a></div>
                     @php
-                        $cleanGloss = trim(str_replace(['{', '}'], '', str_replace(';', ' ', $row['gloss_en'] ?? '')));
+                        $arabicGloss = $row['lexicon']['short_gloss_ar'] ?? null;
+                        $cleanGloss = $arabicGloss ? $arabicGloss : trim(str_replace(['{', '}'], '', str_replace(';', ' ', $row['gloss_en'] ?? '')));
                         // تبسيط الصرف تلقائياً
                         $rawMorph = $row['morphology'] ?? '';
                         $simpleMorph = str_contains($rawMorph, 'V') ? 'فعل' : (str_contains($rawMorph, 'N') ? 'اسم' : (str_contains($rawMorph, 'R') ? 'حرف' : '—'));
@@ -67,8 +80,11 @@
                         elseif(str_contains($rawMorph, 'm')) $simpleMorph .= ' مذكر';
                     @endphp
                     <div class="text-[13px] leading-[1.6] text-stone-800">
-                        <span class="font-semibold">{{ $cleanGloss }}</span>
-                        <span class="text-stone-500 text-[11px] bg-stone-100 px-2 py-0.5 rounded-full ms-1.5">{{ $simpleMorph }}</span>
+                        <span class="font-semibold text-stone-900">{{ $cleanGloss }}</span>
+                        @if($arabicGloss && !empty($row['gloss_en']))
+                            <span class="block text-[11px] text-stone-400 font-mono mt-0.5">{{ trim(str_replace(['{','}'],'',$row['gloss_en'])) }}</span>
+                        @endif
+                        <span class="inline-block text-stone-500 text-[11px] bg-stone-100 px-2 py-0.5 rounded-full mt-1">{{ $simpleMorph }}</span>
                     </div>
                 </div>
             @endforeach
