@@ -10,39 +10,30 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * ArabicConcordance (WordToken) - word-level alignment
+ * ArabicConcordance (WordToken) — word-level alignment
  *
  * Maps each Arabic word (SVD) to its source Hebrew/Greek lemma.
+ * Supports new clean schema: morphology_ar (Arabic parse) + morphology (English/computer).
  *
- * @property int $id
+ * @property int $id PK AUTOINCREMENT
  * @property string $verse_osis e.g. Gen.1.1 (Indexed)
- * @property int $word_pos
- * @property string $strong_id Primary lexical Strong (H7225)
- * @property string $source_word Vocalized original (בְּרֵאשִׁ֖ית)
- * @property string $source_clean Stripped
- * @property string $transliteration
- * @property string $arabic_word Vocalized SVD Arabic (فِي الْبَدْءِ)
- * @property string $arabic_clean Stripped Tashkeel
- * @property string|null $gloss_en
- * @property string|null $morphology Grammar parsing
- * @property string|null $all_strongs Full raw IDs (H9003;H7225)
+ * @property int $word_pos Position in verse (1..n)
+ * @property string $strong_id Primary Strong <9000 (Indexed) e.g. H7225
+ * @property string|null $all_strongs Full raw IDs e.g. H9003;H7225
+ * @property string $source_word Vocalized original בְּרֵאשִׁ֖ית
+ * @property string $transliteration Latin be.;re.Shit
+ * @property string $arabic_word Vocalized SVD فِي الْبَدْءِ
+ * @property string $arabic_clean Stripped في البدء
+ * @property string|null $gloss_en English gloss in;{beginning}
+ * @property string|null $morphology English/computer parse HR/Ncfsa
+ * @property string|null $morphology_ar Arabic parse حرف جر + اسم مؤنث
  */
 class ArabicConcordance extends Model
 {
     use HasFactory;
 
-    /**
-     * Explicit table name.
-     *
-     * @var string
-     */
     protected $table = 'arabic_concordance';
 
-    /**
-     * No timestamps in pipeline; disable.
-     *
-     * @var bool
-     */
     public $timestamps = false;
 
     /**
@@ -52,6 +43,7 @@ class ArabicConcordance extends Model
         'verse_osis',
         'word_pos',
         'strong_id',
+        'all_strongs',
         'source_word',
         'source_clean',
         'transliteration',
@@ -59,7 +51,7 @@ class ArabicConcordance extends Model
         'arabic_clean',
         'gloss_en',
         'morphology',
-        'all_strongs',
+        'morphology_ar',
     ];
 
     /**
@@ -81,7 +73,7 @@ class ArabicConcordance extends Model
 
     /**
      * Verse (canonical spine) this token belongs to.
-     * Verse.osis_id <-> ArabicConcordance.verse_osis (string FK, not integer)
+     * FK is OSIS string (verse_osis -> osis_id).
      *
      * @return BelongsTo<Verse, ArabicConcordance>
      */
@@ -91,32 +83,34 @@ class ArabicConcordance extends Model
     }
 
     /**
-     * Scope by verse OSIS.
+     * LXX cross-reference for this token if Strong is Greek and has LXX link.
+     * Note: lxx_concordance is keyed by strong_id + verse_osis, not by word_pos.
      *
-     * @param Builder<ArabicConcordance> $query
+     * @return BelongsTo<LxxConcordance, ArabicConcordance>
      */
+    public function lxx(): BelongsTo
+    {
+        return $this->belongsTo(LxxConcordance::class, 'strong_id', 'strong_id')
+            ->whereColumn('lxx_concordance.verse_osis', 'arabic_concordance.verse_osis');
+    }
+
     public function scopeByVerse(Builder $query, string $osis): Builder
     {
         return $query->where('verse_osis', $osis)->orderBy('word_pos');
     }
 
-    /**
-     * Scope by Strong ID.
-     *
-     * @param Builder<ArabicConcordance> $query
-     */
     public function scopeByStrong(Builder $query, string $strongId): Builder
     {
         return $query->where('strong_id', $strongId);
     }
 
-    /**
-     * Scope by Arabic clean form (search without Tashkeel).
-     *
-     * @param Builder<ArabicConcordance> $query
-     */
     public function scopeByArabic(Builder $query, string $arabicClean): Builder
     {
         return $query->where('arabic_clean', $arabicClean);
+    }
+
+    public function scopeIndexedVerse(Builder $query): Builder
+    {
+        return $query->whereHas('verse', fn (Builder $q) => $q->where('is_indexed', true));
     }
 }

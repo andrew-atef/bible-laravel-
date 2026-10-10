@@ -49,10 +49,10 @@ class SitemapController extends Controller
         $urls[] = $this->urlEntry(url('/about'), now()->toDateString(), 'monthly', '0.6');
         $urls[] = $this->urlEntry(url('/study-guide'), now()->toDateString(), 'monthly', '0.6');
 
-        // Only books where is_indexed=true (Month 1: Jhn only)
+        // Only books where is_indexed=true (Month 1: Jhn only) — strict schema: id is canonical 1..66
         $books = Book::where('is_indexed', true)
             ->select(['slug', 'code'])
-            ->orderBy('book_number')
+            ->orderBy('id')
             ->get();
 
         foreach ($books as $book) {
@@ -78,13 +78,13 @@ class SitemapController extends Controller
         // To ensure both pilot chapters appear, we take 10 from each book (Gen first, Jhn second)
         $urls = [];
 
-        // Chapter URLs for indexed chapters (Gen.1, Jhn.1) — 2 chapters, always include
+        // Chapter URLs for indexed chapters (Gen.1, Jhn.1) — 2 chapters, always include — strict schema: books.id
         $chapters = Verse::query()
             ->join('books', 'books.id', '=', 'verses.book_id')
             ->where('verses.is_indexed', true)
-            ->selectRaw('books.slug, verses.chapter, MAX(verses.updated_at) as updated_at, books.book_number')
-            ->groupBy('books.slug', 'verses.chapter', 'books.book_number')
-            ->orderBy('books.book_number')
+            ->selectRaw('books.slug, verses.chapter, MAX(verses.updated_at) as updated_at, books.id')
+            ->groupBy('books.slug', 'verses.chapter', 'books.id')
+            ->orderBy('books.id')
             ->orderBy('verses.chapter')
             ->limit(5)
             ->get();
@@ -93,13 +93,13 @@ class SitemapController extends Controller
             $urls[] = $this->urlEntry(url("/read/{$ch->slug}/{$ch->chapter}"), $ch->updated_at?->toDateString() ?? now()->toDateString(), 'weekly', '0.8');
         }
 
-        // Verses: take 7 per book to ensure both Gen and Jhn appear balanced (7+7 verses +2 chapters =16)
+        // Verses: take 7 per book to ensure both Gen and Jhn appear balanced — strict schema: books.id
         $booksWithVerses = Verse::query()
             ->join('books', 'books.id', '=', 'verses.book_id')
             ->where('verses.is_indexed', true)
-            ->selectRaw('books.code, books.book_number')
-            ->groupBy('books.code', 'books.book_number')
-            ->orderBy('books.book_number')
+            ->selectRaw('books.code, books.id')
+            ->groupBy('books.code', 'books.id')
+            ->orderBy('books.id')
             ->get();
 
         $verseUrls = collect();

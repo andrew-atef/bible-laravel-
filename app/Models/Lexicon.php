@@ -7,63 +7,45 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Lexicon model - Strong's Lexicon (H7225, G2424 etc.)
+ * Lexicon — Strong's Lexicon (strict schema: biblical_core.db)
  *
- * @property string $strong_id Primary key (H7225, G2424)
+ * Real columns ONLY: strong_id, language, lemma, lemma_clean, transliteration,
+ * pronunciation, part_of_speech, word_origin, root_strongs, roots_json,
+ * strongs_definition, kjv_translations, outline_json, is_indexed
+ *
+ * @property string $strong_id PK e.g. H7225, G4647
  * @property string $language hebrew|aramaic|greek
- * @property string $lemma
- * @property string $lemma_clean
+ * @property string $lemma Vocalized lemma
+ * @property string $lemma_clean Stripped for search
  * @property string|null $transliteration
  * @property string|null $pronunciation
  * @property string|null $part_of_speech
- * @property string|null $word_origin
- * @property string|null $root_strong
- * @property string|null $strongs_definition
- * @property string|null $kjv_translations
- * @property array|null $outline_json
+ * @property string|null $word_origin Raw derivation text
+ * @property string|null $root_strongs Semicolon list e.g. G4628;G3700
+ * @property array|null $roots_json JSON array ["G4628","G3700"]
+ * @property string|null $strongs_definition English definition
+ * @property string|null $kjv_translations KJV tags
+ * @property array|null $outline_json JSON array
+ * @property bool $is_indexed
  */
 class Lexicon extends Model
 {
     use HasFactory;
 
-    /**
-     * Table is lexicons (default).
-     *
-     * @var string
-     */
     protected $table = 'lexicons';
 
-    /**
-     * Primary key is strong_id (string, non-incrementing).
-     *
-     * @var string
-     */
     protected $primaryKey = 'strong_id';
 
-    /**
-     * @var bool
-     */
     public $incrementing = false;
 
-    /**
-     * @var string
-     */
     protected $keyType = 'string';
 
-    /**
-     * No timestamps in original pipeline; but we support if added via migration.
-     *
-     * @var bool
-     */
     public $timestamps = false;
 
-    /**
-     * @var string[]
-     */
+    /** @var string[] */
     protected $fillable = [
         'strong_id',
         'language',
@@ -73,24 +55,23 @@ class Lexicon extends Model
         'pronunciation',
         'part_of_speech',
         'word_origin',
-        'root_strong',
+        'root_strongs',
+        'roots_json',
         'strongs_definition',
-        'strongs_definition_ar',
         'kjv_translations',
-        'kjv_translations_ar',
         'outline_json',
+        'is_indexed',
+        'strongs_definition_ar',
+        'kjv_translations_ar',
         'outline_json_ar',
         'short_gloss_ar',
-        'is_indexed',
         'translated_at',
     ];
 
-    /**
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
+            'roots_json' => 'array',
             'outline_json' => 'array',
             'outline_json_ar' => 'array',
             'is_indexed' => 'boolean',
@@ -98,63 +79,100 @@ class Lexicon extends Model
         ];
     }
 
-    /**
-     * All Arabic concordance tokens using this Strong ID.
-     *
-     * @return HasMany<ArabicConcordance>
-     */
+    /** @return HasMany<ArabicConcordance> */
     public function concordances(): HasMany
     {
         return $this->hasMany(ArabicConcordance::class, 'strong_id', 'strong_id');
     }
 
-    /**
-     * Alias: tokens.
-     *
-     * @return HasMany<ArabicConcordance>
-     */
+    /** @return HasMany<ArabicConcordance> */
     public function tokens(): HasMany
     {
         return $this->hasMany(ArabicConcordance::class, 'strong_id', 'strong_id');
     }
 
-    /**
-     * Root lexicon (self-referential) via root_strong.
-     *
-     * @return BelongsTo<Lexicon, Lexicon>
-     */
-    public function rootLexicon(): BelongsTo
+    /** @return HasMany<LxxConcordance> */
+    public function lxxConcordances(): HasMany
     {
-        return $this->belongsTo(self::class, 'root_strong', 'strong_id');
+        return $this->hasMany(LxxConcordance::class, 'strong_id', 'strong_id');
+    }
+
+    /** @return HasMany<LxxConcordance> */
+    public function lxxOccurrences(): HasMany
+    {
+        return $this->hasMany(LxxConcordance::class, 'strong_id', 'strong_id');
     }
 
     /**
-     * Children derived from this root.
-     *
-     * @return HasMany<Lexicon>
+     * All root lexicons derived from roots_json / root_strongs (strict schema).
+     * @return \Illuminate\Support\Collection<int, Lexicon>
      */
-    public function derivedLexicons(): HasMany
+    public function rootLexicons(): \Illuminate\Support\Collection
     {
-        return $this->hasMany(self::class, 'root_strong', 'strong_id');
+        $ids = $this->resolveRootIds();
+        if ($ids === []) {
+            return collect();
+        }
+        return self::whereIn('strong_id', $ids)->get()->sortBy(fn (self $l) => array_search($l->strong_id, $ids, true))->values();
     }
 
-    /**
-     * Scope by language.
-     *
-     * @param Builder<Lexicon> $query
+    /** 
+     * Resolve all root Strong IDs for this entry (multi-root aware)
+     * Handles both plain string arrays ["G4628"] and rich object arrays [{"strong_id": "G4628", ...}]
+     * 
+     * @return string[] 
      */
+    public function resolveRootIds(): array
+    {
+        if (is_array($this->roots_json) && $this->roots_json !== []) {
+            $ids = [];
+            foreach ($this->roots_json as $item) {
+                if (is_array($item) && isset($item['strong_id'])) {
+                    // لو الداتا بالشكل الغني الجديد
+                    $ids[] = strtoupper(trim((string) $item['strong_id']));
+                } elseif (is_string($item) && trim($item) !== '') {
+                    // لو الداتا بالشكل القديم كنص عادي
+                    $ids[] = strtoupper(trim($item));
+                }
+            }
+            if (!empty($ids)) {
+                return array_values(array_unique(array_filter($ids)));
+            }
+        }
+
+        $raw = $this->getAttribute('root_strongs');
+        if (is_string($raw) && trim($raw) !== '') {
+            preg_match_all('/[HG]\d+/i', $raw, $m);
+            if (!empty($m[0])) {
+                return array_values(array_unique(array_map(fn ($v) => strtoupper($v), $m[0])));
+            }
+        }
+
+        return [];
+    }
+
+    /** Children via roots_json / root_strongs — strict schema only */
+    public function derivedLexiconsMulti(): Builder
+    {
+        $id = $this->strong_id;
+        return self::query()->where(function (Builder $q) use ($id): void {
+            $q->where('root_strongs', 'like', "%{$id}%")
+                ->orWhere('roots_json', 'like', "%\"{$id}\"%");
+        });
+    }
+
     public function scopeByLanguage(Builder $query, string $language): Builder
     {
         return $query->where('language', $language);
     }
 
-    /**
-     * Scope by Strong ID prefix (H or G).
-     *
-     * @param Builder<Lexicon> $query
-     */
     public function scopeByPrefix(Builder $query, string $prefix): Builder
     {
         return $query->where('strong_id', 'like', $prefix . '%');
+    }
+
+    public function scopeIndexed(Builder $query): Builder
+    {
+        return $query->where('is_indexed', true);
     }
 }

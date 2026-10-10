@@ -154,35 +154,10 @@
         @endif
     </div>
 
-    {{-- الترجمات الشائعة — ثنائية اللغة: العربي فوق الإنجليزي --}}
+    {{-- الترجمات الشائعة — ثنائية اللغة: العربي فوق الإنجليزي — Golden Rule: split in service, no Blade closure --}}
     @php
-        $kjvEnRaw = $lex['kjv_translations'] ?? '';
-        $kjvArRaw = $lex['kjv_translations_ar'] ?? '';
-        // دالة تقسيم تحترم الأقواس: لا تقسم داخل (... )
-        $splitKjv = function(string $s): array {
-            $s = trim(str_replace([':--', '--'], '', $s));
-            $s = trim($s, " \t\n\r\0\x0B.,;:-");
-            if ($s === '') return [];
-            $res = []; $cur = ''; $depth = 0;
-            $len = mb_strlen($s, 'UTF-8');
-            for ($i=0; $i<$len; $i++) {
-                $ch = mb_substr($s, $i, 1, 'UTF-8');
-                if ($ch==='(') $depth++;
-                if ($ch===')') $depth = max(0,$depth-1);
-                // يدعم الفاصلة العربية ، والإنجليزية , والفاصلة المنقوطة ؛ ;
-                if (($ch===',' || $ch==='،' || $ch===';' || $ch==='؛') && $depth===0) {
-                    $res[] = trim($cur);
-                    $cur = '';
-                } else {
-                    $cur .= $ch;
-                }
-            }
-            if (trim($cur) !== '') $res[] = trim($cur);
-            return array_values(array_filter(array_map(fn($x)=>trim($x," \t\n\r\0\x0B.;:-"), $res)));
-        };
-        $kjvEnItems = $splitKjv($kjvEnRaw);
-        $kjvArItems = $splitKjv($kjvArRaw);
-        $kjvCount = max(count($kjvEnItems), count($kjvArItems));
+        $kjvEnItems = $lex['kjv_items_en'] ?? [];
+        $kjvArItems = $lex['kjv_items_ar'] ?? [];
     @endphp
     @if(!empty($kjvEnItems) || !empty($kjvArItems))
         <div class="mt-5 p-4 rounded-xl bg-stone-50 border border-stone-100 space-y-4">
@@ -233,6 +208,46 @@
             <span class="px-3 py-1 rounded-lg bg-white border border-stone-200 text-sm font-bold text-stone-800 shadow-xs" style="font-family:var(--font-hebrew)">
                 {{ $form['word'] }} <span class="text-stone-400 font-normal text-xs font-mono">({{ $form['count'] }}×)</span>
             </span>
+        @endforeach
+    </div>
+</div>
+@endif
+
+{{-- LXX — شواهد الترجمة السبعينية (العهد القديم) --}}
+@if(isset($lxxOccurrences) && $lxxOccurrences->count())
+<div class="mt-8">
+    <div class="flex items-baseline justify-between mb-4">
+        <h2 class="text-base font-extrabold text-stone-900 flex items-center gap-2">
+            <span>🏛️</span>
+            <span>شواهد الكلمة في الترجمة السبعينية — العهد القديم ({{ $lxxOccurrences->count() }} موضع)</span>
+        </h2>
+        <span class="text-xs text-stone-400">الاستخدام السبعيني للفظ اليوناني في الترجمة اليونانية للعهد القديم (LXX)</span>
+    </div>
+    <div class="space-y-3">
+        @foreach($lxxOccurrences as $lxx)
+            <div class="bg-amber-50/40 rounded-xl border border-amber-200/80 p-4 hover:border-amber-300 transition shadow-xs">
+                <div class="flex items-center justify-between text-xs mb-2">
+                    <span class="font-bold text-amber-900 font-arabic-text text-sm">
+                        {{ $lxx->book_name_ar }} {{ $lxx->chapter }}: {{ $lxx->verse }}
+                    </span>
+                    <div class="flex items-center gap-2">
+                        @if($lxx->hebrew_word)
+                            <span class="px-2.5 py-0.5 rounded-full bg-white border border-amber-200 text-stone-800 font-mono text-xs" dir="ltr" style="font-family:var(--font-hebrew)">
+                                المقابل العبري: {{ $lxx->hebrew_word }}
+                            </span>
+                        @endif
+                        <span class="text-stone-400 font-mono text-xs">{{ $lxx->verse_osis }}</span>
+                    </div>
+                </div>
+                <div class="font-arabic-text text-[18px] leading-relaxed text-stone-900 mb-1">
+                    {{ $lxx->text_ar }}
+                </div>
+                @if($lxx->context_note)
+                    <div class="text-xs text-stone-500 font-mono mt-1" dir="ltr">
+                        {{ $lxx->context_note }}
+                    </div>
+                @endif
+            </div>
         @endforeach
     </div>
 </div>

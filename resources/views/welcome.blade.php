@@ -37,8 +37,8 @@
     </div>
 </div>
 
-{{-- Testament Books Grid --}}
-@php $ot = $navBooks->where('testament','OT'); $nt = $navBooks->where('testament','NT'); @endphp
+{{-- Testament Books Grid — strict schema: id 1..39 OT, 40..66 NT --}}
+@php $ot = $navBooks->filter(fn($b) => (int)($b->id ?? 0) <= 39); $nt = $navBooks->filter(fn($b) => (int)($b->id ?? 0) > 39); @endphp
 <div class="mt-8">
     <h2 class="text-[13px] font-bold tracking-wide text-stone-500">العهد القديم — 39 سفر</h2>
     <div class="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">

@@ -51,7 +51,7 @@ class AppServiceProvider extends ServiceProvider
         View::composer(['layouts.app', 'layouts.*', 'bible.*', 'read.*', 'welcome', 'home', '*'], function ($view): void {
             try {
                 $books = \Illuminate\Support\Facades\Cache::remember('nav_books', 86400, function () {
-                    $dbBooks = \App\Models\Book::orderBy('book_number')->get(['id','code','slug','name_ar','name_en','testament','book_number']);
+                    $dbBooks = \App\Models\Book::orderBy('id')->get(['id','code','slug','name_ar','name_en','testament']);
                     if ($dbBooks->isNotEmpty()) {
                         return $dbBooks;
                     }

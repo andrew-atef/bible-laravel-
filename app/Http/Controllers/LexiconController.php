@@ -63,6 +63,25 @@ class LexiconController extends Controller
 
         $currentEntity = \App\Models\Lexicon::where('strong_id', $strongId)->first() ?? $strongId;
 
+        // Septuagint cross-references — LXX concordance (strict schema: books.id)
+        $lxxOccurrences = \App\Models\LxxConcordance::query()
+            ->join('verses', 'verses.osis_id', '=', 'lxx_concordance.verse_osis')
+            ->join('books', 'books.id', '=', 'verses.book_id')
+            ->where('lxx_concordance.strong_id', $strongId)
+            ->select([
+                'lxx_concordance.verse_osis',
+                'lxx_concordance.hebrew_word',
+                'lxx_concordance.context_note',
+                'verses.text_ar',
+                'verses.chapter',
+                'verses.verse',
+                'books.name_ar as book_name_ar'
+            ])
+            ->orderBy('books.id')
+            ->orderBy('verses.chapter')
+            ->orderBy('verses.verse')
+            ->get();
+
         return view('lexicon.show', compact(
             'summary', 
             'occurrences', 
@@ -71,7 +90,8 @@ class LexiconController extends Controller
             'strongId', 
             'prevStrong', 
             'nextStrong', 
-            'currentEntity'
+            'currentEntity',
+            'lxxOccurrences'
         ));
     }
 }

@@ -33,15 +33,15 @@ return [
 
         // Default SQLite - now points to biblical_core.db (Arabic-first Biblical platform)
         // Foreign keys + WAL pragmas are enforced via AppServiceProvider boot (see PRAGMA statements)
+        // journal_mode is intentionally not set here to avoid "database is locked" during recovery (WAL is set lazily in AppServiceProvider)
         'sqlite' => [
             'driver' => 'sqlite',
             'url' => env('DB_URL'),
             'database' => env('DB_DATABASE', database_path('biblical_core.db')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
-            // WAL mode and busy tolerance for concurrent reads (lexical lookups)
             'busy_timeout' => 5000,
-            'journal_mode' => env('DB_JOURNAL_MODE', 'WAL'),
+            'journal_mode' => env('DB_JOURNAL_MODE', null),
             'synchronous' => env('DB_SYNCHRONOUS', 'NORMAL'),
         ],
 
@@ -49,11 +49,11 @@ return [
         'biblical_core' => [
             'driver' => 'sqlite',
             'url' => env('DB_URL'),
-            'database' => database_path('biblical_core.db'),
+            'database' => env('DB_DATABASE', database_path('biblical_core.db')),
             'prefix' => '',
             'foreign_key_constraints' => true,
             'busy_timeout' => 5000,
-            'journal_mode' => 'WAL',
+            'journal_mode' => null,
             'synchronous' => 'NORMAL',
         ],
 

@@ -11,13 +11,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Verse model - canonical verse spine (Gen.1.1 etc.)
+ * Verse — canonical verse spine (Gen.1.1 etc.)
  *
  * @property int $id
- * @property int $book_id
+ * @property int $book_id FK → books.id
  * @property int $chapter
  * @property int $verse
- * @property string $osis_id e.g. Gen.1.1
+ * @property string $osis_id UNIQUE e.g. Gen.1.1
+ * @property string|null $text_ar Full vocalized Arabic text (e.g. فِي الْبَدْءِ خَلَقَ...)
+ * @property string|null $text_clean Stripped for search (e.g. في البدء خلق)
+ * @property bool $is_indexed Staged indexation flag
  */
 class Verse extends Model
 {
@@ -58,7 +61,7 @@ class Verse extends Model
 
     /**
      * Word-level Arabic concordance tokens for this verse.
-     * Foreign key is OSIS string (verse_osis -> osis_id).
+     * FK is OSIS string (verse_osis -> osis_id), ordered by word_pos.
      *
      * @return HasMany<ArabicConcordance>
      */
@@ -69,7 +72,7 @@ class Verse extends Model
     }
 
     /**
-     * Alias for tokens() - explicit naming for lexical platform.
+     * Alias for tokens() — explicit naming for lexical platform.
      *
      * @return HasMany<ArabicConcordance>
      */
@@ -77,6 +80,16 @@ class Verse extends Model
     {
         return $this->hasMany(ArabicConcordance::class, 'verse_osis', 'osis_id')
             ->orderBy('word_pos');
+    }
+
+    /**
+     * LXX cross-references occurring in this verse (if any).
+     *
+     * @return HasMany<LxxConcordance>
+     */
+    public function lxxTokens(): HasMany
+    {
+        return $this->hasMany(LxxConcordance::class, 'verse_osis', 'osis_id');
     }
 
     /**
@@ -90,13 +103,20 @@ class Verse extends Model
     }
 
     /**
+     * Scope to indexed verses only (staged indexation).
+     *
+     * @param Builder<Verse> $query
+     */
+    public function scopeIndexed(Builder $query): Builder
+    {
+        return $query->where('is_indexed', true);
+    }
+
+    /**
      * Get next verse in canonical order.
-     * Attempts book/chapter/verse increment, fallback to id ordering.
      */
     public function nextVerse(): ?self
     {
-        // Try same book next chapter/verse via id ordering (canonical insertion order)
-        // More robust: order by book_number, chapter, verse via join
         $next = self::where(function (Builder $q): void {
             $q->where('book_id', '>', $this->book_id)
                 ->orWhere(function (Builder $q): void {
@@ -115,7 +135,6 @@ class Verse extends Model
             ->orderBy('verse')
             ->first();
 
-        // Fallback to simple id increment (covers gaps)
         if ($next === null) {
             $next = self::where('id', '>', $this->id)->orderBy('id')->first();
         }

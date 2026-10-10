@@ -356,11 +356,18 @@ class BibleReaderService
             ];
         }
 
-        // Cross-book: find next book with at least one verse
+        // Cross-book: find next/prev book with at least one verse
+        $bookId = (int) $book->id;
+
+        // حماية: إذا كنا في سفر التكوين (1) ونبحث عن السابق، لا يوجد سابق
+        if ($direction < 0 && $bookId <= 1) {
+            return null;
+        }
+
         $adjacentBook = Book::query()
-            ->select(['id', 'slug', 'name_ar', 'name_en', 'book_number'])
-            ->where('book_number', $direction > 0 ? '>' : '<', $book->book_number)
-            ->orderBy('book_number', $direction > 0 ? 'asc' : 'desc')
+            ->select(['id', 'slug', 'name_ar', 'name_en']) // لا نطلب book_number إطلاقاً
+            ->where('id', $direction > 0 ? '>' : '<', $bookId)
+            ->orderBy('id', $direction > 0 ? 'asc' : 'desc')
             ->first();
 
         if ($adjacentBook === null) {

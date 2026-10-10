@@ -22,14 +22,6 @@
 
 {{-- Scripture as beautiful flowing paragraphs (group 5 verses per paragraph like Apple Books) --}}
 <div class="bg-white rounded-[20px] border border-stone-200 p-5 sm:p-8 shadow-[0_10px_30px_rgba(0,0,0,.04)]">
-    @php
-        // Helper to translate morphology to simple Arabic
-        $morphMap = [
-            'N' => 'اسم', 'V' => 'فعل', 'A' => 'صفة', 'P' => 'ضمير', 'R' => 'حرف جر', 'C' => 'أداة ربط', 'D' => 'أداة تعريف',
-            'ms' => 'مذكر مفرد', 'fs' => 'مؤنث مفرد', 'mp' => 'مذكر جمع', 'fp' => 'مؤنث جمع', 'msa' => 'مذكر مفرد منصوب', 'msp' => 'مذكر مفرد',
-            'HR' => 'مركب جر', 'HN' => 'اسم', 'H' => 'الـ', 'c' => 'مشترك', 'a' => 'مطلق',
-        ];
-    @endphp
     <div class="scripture-paragraph" id="scripture-content">
         @foreach($verses as $verse)
             <span class="inline" data-osis="{{ $verse->osis_id }}" data-verse="{{ $verse->verse }}" data-chapter="{{ $verse->chapter }}">
@@ -41,10 +33,10 @@
                           data-source="{{ $tok->source_word }}"
                           data-translit="{{ $tok->lexicon->transliteration ?? $tok->transliteration }}"
                           data-pronunciation="{{ $tok->lexicon->pronunciation ?? '' }}"
-                          data-gloss-ar="{{ $tok->lexicon->short_gloss_ar ?? '' }}"
+                          data-gloss-ar=""
                           data-gloss-en="{{ $tok->gloss_en }}"
                           data-gloss="{{ $tok->gloss_en }}"
-                          data-morph="{{ $tok->morphology }}"
+                          data-morph-ar="{{ $tok->morphology_ar }}"
                           data-lemma="{{ $tok->lexicon->lemma ?? '' }}"
                           data-lemma-clean="{{ $tok->lexicon->lemma_clean ?? '' }}"
                           data-lang="{{ $tok->lexicon->language ?? '' }}"
@@ -135,46 +127,6 @@
 
 @push('scripts')
 <script>
-// قاموس ذكي لتحويل أكواد النحو المعقدة إلى لغة عربية مفهومة
-const grammarRules = [
-    { pattern: /HR\/Ncfsa|HR\/Nc/i, label: 'حرف جر + اسم مؤنث' },
-    { pattern: /HTd\/Ncmpa|HTd\/Nc/i, label: 'أداة تعريف + اسم جمع' },
-    { pattern: /HTd\/Ncfsa/i, label: 'أداة تعريف + اسم مؤنث' },
-    { pattern: /HVqp3ms|V-Qal.*3ms/i, label: 'فعل ماضٍ (هو)' },
-    { pattern: /HNcmpa|N-mp/i, label: 'اسم جمع مذكر' },
-    { pattern: /HNcfsa|N-fs/i, label: 'اسم مفرد مؤنث' },
-    { pattern: /HNcmsa|N-ms/i, label: 'اسم مفرد مذكر' },
-    { pattern: /N-NSF/i, label: 'اسم مؤنث مرفوع' },
-    { pattern: /N-GSM/i, label: 'اسم مذكر مضاف إليه' },
-    { pattern: /V-AAI-3S/i, label: 'فعل ماضٍ' },
-    { pattern: /PREP/i, label: 'حرف جر' },
-    { pattern: /CONJ/i, label: 'حرف عطف' },
-    { pattern: /T-ASM|T-NSM|T-GSF/i, label: 'أداة تعريف' }
-];
-
-function translateMorphToSimpleArabic(code) {
-    if (!code) return '—';
-    for (let r of grammarRules) {
-        if (r.pattern.test(code)) return r.label;
-    }
-    // تبسيط عام إن لم يطابق
-    if (code.startsWith('N')) return 'اسم';
-    if (code.startsWith('V')) return 'فعل';
-    if (code.startsWith('A')) return 'صفة';
-    if (code.startsWith('P')) return 'حرف جر / أداة';
-    return 'كلمة أصلية';
-}
-
-// تنظيف المعاني من الأقواس المعقوفة والفواصل المشوهة
-function cleanGlossText(raw) {
-    if (!raw) return '—';
-    return raw
-        .replace(/[{}]/g, '')        // حذف الأقواس المعقوفة
-        .replace(/;/g, ' / ')        // استبدال الفواصل المنقوطة بفاصلة مقروءة
-        .replace(/\s+/g, ' ')        // توحيد المسافات
-        .trim();
-}
-
 // تبسيط النطق الصوتي (مثل BibleHub تماماً: نطق واحد نظيف)
 function cleanPronunciation(pron, translit) {
     let p = pron || translit || '';
@@ -194,23 +146,22 @@ function openWordDrawer(el) {
     const glossAr = el.dataset.glossAr || '';
     const glossEn = el.dataset.glossEn || el.dataset.gloss || '';
     const arabicWord = el.dataset.arabic || '';
-    const morph = el.dataset.morph || '';
-    const osis = el.closest('[id]')?.id || '';
+    const morphAr = el.dataset.morphAr || '';
+    const osis = el.closest('[data-osis]')?.getAttribute('data-osis') || el.closest('[id]')?.id || '';
 
-    // تعبئة الحقول النظيفة فقط
+    // تعبئة الحقول النظيفة فقط — Golden Rule: read directly from DB, no JS regex
     document.getElementById('drawer-arabic-title').textContent = arabic;
     document.getElementById('drawer-strong-badge').textContent = strong;
     const translitHeader = document.getElementById('drawer-translit-header');
     if (translitHeader) translitHeader.textContent = cleanTr;
-    document.getElementById('drawer-morph-simple').textContent = translateMorphToSimpleArabic(morph);
+    document.getElementById('drawer-morph-simple').textContent = morphAr || '—';
     document.getElementById('drawer-source-word').textContent = source;
     document.getElementById('drawer-phonetic').textContent = cleanPronunciation(pron, translit);
     const cleanMeaningEl = document.getElementById('drawer-clean-meaning');
     if (glossAr && glossAr.trim() !== '') {
-        cleanMeaningEl.innerHTML = `<div>${glossAr}</div>` + (glossEn ? `<div class="text-xs text-stone-400 mt-1 font-mono">${cleanGlossText(glossEn)}</div>` : '');
+        cleanMeaningEl.innerHTML = `<div>${glossAr}</div>` + (glossEn ? `<div class="text-xs text-stone-400 mt-1 font-mono">${glossEn}</div>` : '');
     } else {
-        const fallback = cleanGlossText(glossEn);
-        cleanMeaningEl.textContent = fallback !== '—' && fallback !== '' ? fallback : arabicWord;
+        cleanMeaningEl.textContent = glossEn && glossEn.trim() !== '' ? glossEn : arabicWord;
     }
     
     document.getElementById('drawer-lexicon-link').href = '/lexicon/' + strong;
