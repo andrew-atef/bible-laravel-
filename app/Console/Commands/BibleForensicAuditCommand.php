@@ -59,6 +59,11 @@ class BibleForensicAuditCommand extends Command
 
             $this->clearFrameworkCache();
             $this->printFixSummary($report);
+
+            // Close the loop: prove the stale payload is actually gone.
+            $this->newLine();
+            $this->line('  <fg=yellow>Post-fix cache proof</>');
+            $this->inspectSummaryCache();
         } catch (Throwable $e) {
             $this->components->error('Remediation FAILED — transaction rolled back: '.$e->getMessage());
 
@@ -104,6 +109,18 @@ class BibleForensicAuditCommand extends Command
         } else {
             $this->components->warn("Database file not found at: {$dbPath} (non-file driver or missing file — size/mtime skipped).");
         }
+
+        // Ground truth: the ACTUAL file SQLite opened (kills relative-path ambiguity).
+        try {
+            $pragma = DB::select('PRAGMA database_list');
+            $realFile = (string) ($pragma[0]->file ?? '');
+            $this->components->twoColumnDetail('PRAGMA database_list (real file)', $realFile !== '' ? "<fg=green>{$realFile}</>" : '<fg=red>empty (in-memory?)</>');
+        } catch (Throwable $e) {
+            $this->components->warn('PRAGMA database_list failed: '.$e->getMessage());
+        }
+
+        // Cache store identity — CLI and FPM must share it for flushes to work.
+        $this->components->twoColumnDetail('Cache store', '<fg=green>'.config('cache.default').'</>');
 
         return $dbPath;
     }
