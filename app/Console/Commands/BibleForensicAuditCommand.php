@@ -35,6 +35,7 @@ class BibleForensicAuditCommand extends Command
         $beforeH1255 = $this->inspectH1255();
         $beforeGen11 = $this->inspectGen11Word1();
         $scan = $this->globalCleanlinessScan();
+        $this->inspectSummaryCache();
 
         if (! $fix) {
             $this->newLine();
@@ -205,6 +206,44 @@ class BibleForensicAuditCommand extends Command
             'arabic_word' => (string) $tok->arabic_word,
             'transliteration' => (string) $tok->transliteration,
         ];
+    }
+
+    /**
+     * Step 5 — inspect the cached lexicon summary payload.
+     *
+     * /lexicon/* pages are served from Cache key lexicon_summary_v3_{ID}
+     * (TTL 7 days). If the DB is clean but this payload is dirty, the page
+     * will keep showing stale data until the cache is flushed — this check
+     * distinguishes "stale cache" from "stale database / wrong file".
+     */
+    private function inspectSummaryCache(): void
+    {
+        $this->line('  <fg=yellow>5) Cached summary payload (lexicon_summary_v3_H1255, TTL 7d)</>');
+
+        $key = 'lexicon_summary_v3_H1255';
+        $cached = Cache::get($key);
+
+        if (! is_array($cached)) {
+            $this->components->twoColumnDetail('Cache key', '<fg=green>MISS — page will rebuild from live DB</>');
+
+            return;
+        }
+
+        $lex = $cached['lexicon'] ?? [];
+        $this->table(
+            ['Field (cached)', 'Value'],
+            [
+                ['word_origin', (string) ($lex['word_origin'] ?? '—')],
+                ['root_ids', implode(',', (array) ($lex['root_ids'] ?? []))],
+            ]
+        );
+
+        $dirty = str_contains((string) ($lex['word_origin'] ?? ''), 'variation of ;')
+            || empty($lex['root_ids']);
+
+        $this->line($dirty
+            ? '  <fg=red>⚠️ STALE CACHE — payload predates the DB fix. Run --fix (flushes cache) or php artisan cache:clear.</>'
+            : '  <fg=green>✅ Cache payload matches clean DB. If the page still shows dirt, suspect HTTP/CDN/browser cache — hard-refresh.</>');
     }
 
     /** @return array<string, int> */

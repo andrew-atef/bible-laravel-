@@ -98,6 +98,12 @@
     <div class="mt-5 p-4 rounded-xl bg-stone-50 border border-stone-100">
         <span class="text-xs font-bold text-stone-400 block mb-1.5">أصل الكلمة وجذرها</span>
         @php $allRoots = $lex['root_infos'] ?? (!empty($lex['root_info']) ? [$lex['root_info']] : []); @endphp
+        @php
+            // Display-only cleanup of dangling "preposition ;" artifacts left by tag stripping.
+            // The real data repair lives in: php artisan bible:forensic-audit --fix
+            $rawOrigin = (string) ($lex['word_origin'] ?? '');
+            $cleanOrigin = trim((string) preg_replace('/\b(variation of|from the same as|from)\s*;/i', '$1', $rawOrigin));
+        @endphp
         @if(!empty($allRoots))
             <div class="flex items-center flex-wrap gap-2 text-sm text-stone-800">
                 <span>مشتق من:</span>
@@ -122,11 +128,11 @@
                 @endforeach
             </div>
             @if(!empty($lex['word_origin']) && count($allRoots) > 1)
-                <p class="text-xs text-stone-500 mt-2">{{ $lex['word_origin'] }}</p>
+                <p class="text-xs text-stone-500 mt-2">{{ $cleanOrigin }}</p>
             @endif
         @else
             <p class="text-sm text-stone-700 leading-relaxed">
-                {{ !empty($lex['word_origin']) && !str_contains($lex['word_origin'], 'from the same as ;') ? $lex['word_origin'] : 'جذر لغوي أصيل (Primitive Root)' }}
+                {{ !empty($lex['word_origin']) && !str_contains($lex['word_origin'], 'from the same as ;') ? $cleanOrigin : 'جذر لغوي أصيل (Primitive Root)' }}
             </p>
         @endif
     </div>
