@@ -31,7 +31,7 @@
                     data-transliteration="{{ $tok->transliteration }}"
                     data-arabic="{{ $tok->arabic_word }}"
                     data-source="{{ $tok->source_word }}"
-                    data-gloss="{{ $tok->gloss_en }}"
+                    data-gloss="{{ $tok->clean_gloss }}"
                     data-morphology="{{ $tok->morphology }}"
                     data-lemma="{{ $tok->lexicon->lemma ?? '' }}"
                     title="{{ $tok->arabic_word }} ← {{ $tok->source_word }} ({{ $tok->strong_id }})"

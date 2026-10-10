@@ -18,7 +18,7 @@
     <div style="font-size:13px; color:#dc2626; font-weight:700">{{ $verse['osis_id'] }} • الإصحاح {{ $verse['chapter'] }} : الآية {{ $verse['verse'] }}</div>
     <div style="font-size:20px; margin-top:8px; line-height:2; display:flex; flex-wrap:wrap; gap:6px">
         @foreach($tokens as $tok)
-            <span class="word-token" data-strong="{{ $tok->strong_id }}" data-arabic="{{ $tok->arabic_word }}" title="{{ $tok->gloss_en }}">
+            <span class="word-token" data-strong="{{ $tok->strong_id }}" data-arabic="{{ $tok->arabic_word }}" title="{{ $tok->clean_gloss }}">
                 {{ $tok->arabic_word }}
                 <span style="font-size:11px; color:#9ca3af; display:block; text-align:center">{{ $tok->transliteration }}</span>
             </span>

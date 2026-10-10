@@ -25,7 +25,7 @@
     <div class="text-[11px] font-bold tracking-wide text-red-600 mb-2">{{ $verse['osis_id'] }} • الإصحاح {{ $verse['chapter'] }} : الآية {{ $verse['verse'] }}</div>
     <div class="font-arabic-text text-[26px] sm:text-[28px] leading-[2] flex flex-wrap gap-x-2 gap-y-1">
         @foreach($tokens as $tok)
-            <span class="word-token" data-strong="{{ $tok->strong_id }}" data-arabic="{{ $tok->arabic_word }}" data-source="{{ $tok->source_word }}" data-translit="{{ $tok->transliteration }}" data-gloss-ar="{{ $tok->lexicon->short_gloss_ar ?? '' }}" data-gloss="{{ $tok->gloss_en }}" data-gloss-en="{{ $tok->gloss_en }}" data-morph="{{ $tok->morphology }}">{{ $tok->arabic_word }}</span>
+            <span class="word-token" data-strong="{{ $tok->strong_id }}" data-arabic="{{ $tok->arabic_word }}" data-source="{{ $tok->source_word }}" data-translit="{{ $tok->transliteration }}" data-gloss-ar="{{ $tok->lexicon->short_gloss_ar ?? '' }}" data-gloss="{{ $tok->clean_gloss }}" data-gloss-en="{{ $tok->clean_gloss }}" data-morph="{{ $tok->morphology }}">{{ $tok->arabic_word }}</span>
         @endforeach
     </div>
     <div class="mt-4 pt-4 border-t border-stone-100 flex flex-wrap gap-1.5" dir="ltr">

@@ -24,7 +24,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $transliteration Latin be.;re.Shit
  * @property string $arabic_word Vocalized SVD فِي الْبَدْءِ
  * @property string $arabic_clean Stripped في البدء
- * @property string|null $gloss_en English gloss in;{beginning}
+ * @property string|null $gloss_en English gloss (raw DB value, may contain legacy tags)
+ * @property-read string|null $clean_gloss Display-safe gloss: braces stripped, ";" → " / "
  * @property string|null $morphology English/computer parse HR/Ncfsa
  * @property string|null $morphology_ar Arabic parse حرف جر + اسم مؤنث
  */
@@ -112,5 +113,28 @@ class ArabicConcordance extends Model
     public function scopeIndexedVerse(Builder $query): Builder
     {
         return $query->whereHas('verse', fn (Builder $q) => $q->where('is_indexed', true));
+    }
+
+    /**
+     * Display-safe English gloss.
+     *
+     * Defense-in-depth: even if a row still carries legacy Strong's markup
+     * ({braces} or raw ";" separators), the rendered drawer/tooltip always
+     * shows the cleaned form. Mirrors the forensic SQL normalization:
+     * strip "{" / "}" then ";" → " / ".
+     */
+    public function getCleanGlossAttribute(): ?string
+    {
+        $gloss = $this->getAttribute('gloss_en');
+
+        if ($gloss === null || trim((string) $gloss) === '') {
+            return $gloss;
+        }
+
+        $clean = str_replace(['{', '}'], '', (string) $gloss);
+        $clean = str_replace(';', ' / ', $clean);
+        $clean = (string) preg_replace('/\s+/', ' ', $clean);
+
+        return trim($clean);
     }
 }
