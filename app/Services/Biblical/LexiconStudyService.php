@@ -18,7 +18,7 @@ class LexiconStudyService
         private readonly ArabicScriptService $arabicScript
     ) {}
 
-    public function getLexiconSummary(string $strongId): ?array
+public function getLexiconSummary(string $strongId): ?array
     {
         $strongId = strtoupper(trim($strongId));
         if ($strongId === '' || ! preg_match('/^[HG]\d+$/', $strongId)) {
@@ -31,16 +31,23 @@ class LexiconStudyService
                 ->select([
                     'strong_id', 'language', 'lemma', 'lemma_clean', 'transliteration',
                     'pronunciation', 'part_of_speech', 'word_origin', 'root_strongs', 'roots_json',
-                    'strongs_definition', 'kjv_translations', 'outline_json', 'is_indexed',
+                    'strongs_definition', 'strongs_definition_ar', // 🌟 نطلب الشرح العربي
+                    'kjv_translations', 'kjv_translations_ar',     // 🌟 نطلب الترجمات الشائعة عربي
+                    'outline_json', 'outline_json_ar',             // 🌟 نطلب النقاط الشجرية عربي
+                    'short_gloss_ar', 'translated_at',             // 🌟 نطلب المعنى المختصر العربي
+                    'is_indexed',
                 ])
                 ->where('strong_id', $strongId)
                 ->first();
+
             if ($lexicon === null) {
                 return null;
             }
+
             $rootInfo = null;
             $rootInfos = [];
             $allRootIds = $lexicon->resolveRootIds();
+
             if (!empty($allRootIds)) {
                 $roots = Lexicon::whereIn('strong_id', $allRootIds)->get()->keyBy('strong_id');
                 foreach ($allRootIds as $rid) {
@@ -57,6 +64,11 @@ class LexiconStudyService
                         ->groupBy('arabic_word')
                         ->orderByDesc(DB::raw('COUNT(*)'))
                         ->value('arabic_word');
+
+                    if (empty($rootArabic)) {
+                        $rootArabic = $root->short_gloss_ar ?? null;
+                    }
+
                     $rootPron = trim(str_replace(["'", 'ʼ', 'ʻ', '`'], '', $root->pronunciation ?: $root->transliteration ?: ''));
                     $info = [
                         'strong_id'     => $root->strong_id,
@@ -74,7 +86,9 @@ class LexiconStudyService
                     $rootInfo = $rootInfos[0];
                 }
             }
+
             $occurrencesCount = (int) DB::table('arabic_concordance')->where('strong_id', $strongId)->count();
+
             $topArabic = DB::table('arabic_concordance')
                 ->select('arabic_word', 'arabic_clean', DB::raw('COUNT(*) as cnt'))
                 ->where('strong_id', $strongId)
@@ -88,6 +102,7 @@ class LexiconStudyService
                     'arabic_normalized' => $this->arabicScript->normalizeForSearch($row->arabic_clean),
                     'count' => (int) $row->cnt,
                 ])->toArray();
+
             $hebrewForms = DB::table('arabic_concordance')
                 ->select('source_word', DB::raw('COUNT(*) as cnt'))
                 ->where('strong_id', $strongId)
@@ -97,22 +112,39 @@ class LexiconStudyService
                 ->limit(8)
                 ->get()
                 ->map(fn ($row): array => ['word' => $row->source_word, 'count' => (int) $row->cnt])->toArray();
+
             $gramForms = [];
             $simpleTranslit = strtolower(trim(str_replace(["'", 'ʼ', 'ʻ', '`', 'ê', 'î', 'ô', 'û'], ['','','','','e','i','o','u'], $lexicon->transliteration ?? '')));
             if (!$simpleTranslit) {
                 $simpleTranslit = strtolower(trim(str_replace(["'", '-'], '', $lexicon->pronunciation ?? '')));
             }
+
+            // Outline English
             $outline = $lexicon->outline_json;
             if (is_string($outline)) {
                 $decoded = json_decode($outline, true);
                 $outline = is_array($decoded) ? $decoded : [];
             }
             if ($outline === null) $outline = [];
-            // Strict schema: no outline_json_ar — use outline_json for both, def_ar from strongs_definition fallback
-            $outlineAr = [];
-            $defAr = $lexicon->strongs_definition ? trim(explode(';', $lexicon->strongs_definition)[0]) : null;
-            // Clean split for KJV translations moved to service helper
+
+            // Outline Arabic
+            $outlineAr = $lexicon->outline_json_ar;
+            if (is_string($outlineAr)) {
+                $decodedAr = json_decode($outlineAr, true);
+                $outlineAr = is_array($decodedAr) ? $decodedAr : [];
+            }
+            if ($outlineAr === null) $outlineAr = [];
+
+            // 🌟 القراءة الحقيقية للترجمة العربية المعتمدة من الداتابيز:
+            $defAr = $lexicon->strongs_definition_ar
+                ?: ($lexicon->strongs_definition ? trim(explode(';', $lexicon->strongs_definition)[0]) : null);
+
+            $shortGlossAr = $lexicon->short_gloss_ar
+                ?: $defAr;
+
             $kjvEnItems = $this->splitKjvTranslations($lexicon->kjv_translations ?? '');
+            $kjvArItems = $this->splitKjvTranslations($lexicon->kjv_translations_ar ?? '');
+
             return [
                 'lexicon' => [
                     'strong_id' => $lexicon->strong_id,
@@ -130,15 +162,15 @@ class LexiconStudyService
                     'root_info' => $rootInfo,
                     'root_infos' => $rootInfos,
                     'strongs_definition' => $lexicon->strongs_definition,
-                    'strongs_definition_ar' => $defAr,
+                    'strongs_definition_ar' => $defAr,             // ✅ الشرح العربي المترجم
                     'kjv_translations' => $lexicon->kjv_translations,
-                    'kjv_translations_ar' => null,
+                    'kjv_translations_ar' => $lexicon->kjv_translations_ar,
                     'outline_items' => $outline,
                     'outline_json_ar' => $outlineAr,
-                    'short_gloss_ar' => $defAr,
+                    'short_gloss_ar' => $shortGlossAr,             // ✅ المعنى الصافي العربي
                     'kjv_items_en' => $kjvEnItems,
-                    'kjv_items_ar' => [],
-                    'translated_at' => null,
+                    'kjv_items_ar' => $kjvArItems,
+                    'translated_at' => $lexicon->translated_at,
                 ],
                 'occurrences_count' => $occurrencesCount,
                 'top_arabic_translations' => $topArabic,
@@ -151,12 +183,13 @@ class LexiconStudyService
                 ],
             ];
         };
+
         if ($storeSupportsTags) {
             $result = Cache::tags(['lexicon', 'lexicon_summary'])->remember($cacheKey, 604800, $callback);
         } else {
             $result = Cache::remember($cacheKey, 604800, $callback);
         }
-        /** @var array|null $result */
+
         return $result;
     }
 
