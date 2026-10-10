@@ -24,7 +24,7 @@ public function getLexiconSummary(string $strongId): ?array
         if ($strongId === '' || ! preg_match('/^[HG]\d+$/', $strongId)) {
             return null;
         }
-        $cacheKey = 'lexicon_summary_' . $strongId;
+        $cacheKey = 'lexicon_summary_v3_' . $strongId;
         $storeSupportsTags = method_exists(Cache::getStore(), 'tags');
         $callback = function () use ($strongId): ?array {
             $lexicon = Lexicon::query()
