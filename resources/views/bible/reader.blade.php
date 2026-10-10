@@ -33,7 +33,7 @@
                           data-source="{{ $tok->source_word }}"
                           data-translit="{{ $tok->lexicon->transliteration ?? $tok->transliteration }}"
                           data-pronunciation="{{ $tok->lexicon->pronunciation ?? '' }}"
-                          data-gloss-ar=""
+                          data-gloss-ar="{{ $tok->lexicon->short_gloss_ar ?? '' }}"
                           data-gloss-en="{{ $tok->clean_gloss }}"
                           data-gloss="{{ $tok->clean_gloss }}"
                           data-morph-ar="{{ $tok->morphology_ar }}"

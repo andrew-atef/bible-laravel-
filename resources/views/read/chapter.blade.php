@@ -32,6 +32,7 @@
                     data-arabic="{{ $tok->arabic_word }}"
                     data-source="{{ $tok->source_word }}"
                     data-gloss="{{ $tok->clean_gloss }}"
+                    data-gloss-ar="{{ $tok->lexicon->short_gloss_ar ?? '' }}"
                     data-morphology="{{ $tok->morphology }}"
                     data-lemma="{{ $tok->lexicon->lemma ?? '' }}"
                     title="{{ $tok->arabic_word }} ← {{ $tok->source_word }} ({{ $tok->strong_id }})"
@@ -88,7 +89,7 @@ function openDrawer(el){
     document.getElementById('drawer-arabic').textContent = el.dataset.arabic || '';
     document.getElementById('drawer-source').textContent = el.dataset.source || '';
     document.getElementById('drawer-trans').textContent = el.dataset.transliteration ? 'النطق: '+el.dataset.transliteration : '';
-    document.getElementById('drawer-gloss').textContent = el.dataset.gloss ? 'المعنى: '+el.dataset.gloss : '';
+    document.getElementById('drawer-gloss').textContent = el.dataset.glossAr ? 'المعنى: '+el.dataset.glossAr : (el.dataset.gloss ? 'المعنى: '+el.dataset.gloss : '');
     document.getElementById('drawer-morph').textContent = el.dataset.morphology ? 'الصرف: '+el.dataset.morphology : '';
     const link=document.getElementById('drawer-link');
     link.href = '/lexicon/'+(el.dataset.strong||'');
