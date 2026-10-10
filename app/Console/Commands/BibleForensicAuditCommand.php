@@ -35,7 +35,7 @@ class BibleForensicAuditCommand extends Command
         $beforeH1255 = $this->inspectH1255();
         $beforeGen11 = $this->inspectGen11Word1();
         $scan = $this->globalCleanlinessScan();
-        $this->inspectSummaryCache();
+        $this->inspectSummaryCache(false);
 
         if (! $fix) {
             $this->newLine();
@@ -63,7 +63,7 @@ class BibleForensicAuditCommand extends Command
             // Close the loop: prove the stale payload is actually gone.
             $this->newLine();
             $this->line('  <fg=yellow>Post-fix cache proof</>');
-            $this->inspectSummaryCache();
+            $this->inspectSummaryCache(true);
         } catch (Throwable $e) {
             $this->components->error('Remediation FAILED — transaction rolled back: '.$e->getMessage());
 
@@ -233,7 +233,7 @@ class BibleForensicAuditCommand extends Command
      * will keep showing stale data until the cache is flushed — this check
      * distinguishes "stale cache" from "stale database / wrong file".
      */
-    private function inspectSummaryCache(): void
+    private function inspectSummaryCache(bool $postFix = false): void
     {
         $this->line('  <fg=yellow>5) Cached summary payload (lexicon_summary_v3_H1255, TTL 7d)</>');
 
@@ -261,6 +261,12 @@ class BibleForensicAuditCommand extends Command
         $this->line($dirty
             ? '  <fg=red>⚠️ STALE CACHE — payload predates the DB fix. Run --fix (flushes cache) or php artisan cache:clear.</>'
             : '  <fg=green>✅ Cache payload matches clean DB. If the page still shows dirt, suspect HTTP/CDN/browser cache — hard-refresh.</>');
+
+        if ($dirty && $postFix) {
+            $this->line('  <fg=gray>Hint: flush reported success but the key survived — FileStore::flush() never verifies deletion.');
+            $this->line('  <fg=gray>Most likely cause: storage/framework/cache files are owned by the web user (www), so CLI cannot delete them.');
+            $this->line('  <fg=gray>Fix: sudo chown -R www:www storage bootstrap/cache  — then: sudo -u www php artisan cache:clear</>');
+        }
     }
 
     /** @return array<string, int> */
